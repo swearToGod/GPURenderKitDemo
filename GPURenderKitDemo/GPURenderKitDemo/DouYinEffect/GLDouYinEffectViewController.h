@@ -23,6 +23,12 @@ typedef NS_ENUM(NSInteger,DouYinEffectType)
     DouYinEffectType_GLImageGlitchEffectGridFilter,
     /** 灵魂出窍 */
     DouYinEffectType_GLImageSoulOutFilter,
+    /** 放大 */
+    DouYinEffectType_GLImageZoomFilter,
+    /** 水面倒影 */
+    DouYinEffectType_GLImageWaterReflectionFilter,
+    /** 模糊分屏 */
+    DouYinEffectType_GLImageBlurSnapViewFilterGroup,
 };
 
 

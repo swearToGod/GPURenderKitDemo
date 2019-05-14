@@ -18,6 +18,9 @@
 @property (nonatomic, strong) GLImageGlitchEffectGridFilter *glitchEffectGridFilter;
 @property (nonatomic, strong) GLImageGlitchEffectLineFilter *glitchEffectLineFilter;
 @property (nonatomic, strong) GLImageSoulOutFilter *soulOutFilter;
+@property (nonatomic, strong) GLImageZoomFilter *zoomFilter;
+@property (nonatomic, strong) GLImageWaterReflectionFilter *waterReflectionFilter;
+@property (nonatomic, strong) GLImageBlurSnapViewFilterGroup *blurSnapViewFilter;
 
 @property (nonatomic, strong) DouYinEffectTabView *douYinEffectTabView;
 @property (nonatomic, strong) GPUImageOutput<GPUImageInput> *outPutFilter;
@@ -62,7 +65,7 @@
 {
     if (!_videoCamera)
     {
-        _videoCamera = [[GPUImageVideoCamera alloc] initWithSessionPreset:AVCaptureSessionPreset1280x720 cameraPosition:AVCaptureDevicePositionFront];
+        _videoCamera = [[GPUImageVideoCamera alloc] initWithSessionPreset:AVCaptureSessionPreset1280x720 cameraPosition:AVCaptureDevicePositionBack];
         _videoCamera.runBenchmark = NO;
         _videoCamera.horizontallyMirrorFrontFacingCamera = YES;
         _videoCamera.outputImageOrientation = UIInterfaceOrientationPortrait;
@@ -112,6 +115,31 @@
     return _soulOutFilter;
 }
 
+- (GLImageZoomFilter *)zoomFilter{
+    if (!_zoomFilter) {
+        
+        _zoomFilter = [[GLImageZoomFilter alloc]init];
+    }
+    return _zoomFilter;
+}
+
+- (GLImageWaterReflectionFilter *)waterReflectionFilter{
+  
+    if (!_waterReflectionFilter) {
+        
+        _waterReflectionFilter = [[GLImageWaterReflectionFilter alloc]init];
+    }
+    return _waterReflectionFilter;
+}
+
+- (GLImageBlurSnapViewFilterGroup *)blurSnapViewFilter{
+    
+    if (!_blurSnapViewFilter) {
+        _blurSnapViewFilter = [[GLImageBlurSnapViewFilterGroup alloc]init];
+    }
+    return _blurSnapViewFilter;
+}
+
 
 - (DouYinEffectTabView *)douYinEffectTabView
 {
@@ -151,11 +179,6 @@
             
             
         default:
-            break;
-        case DouYinEffectType_GLImageSoulOutFilter:
-        {
-            //            self.soulOutFilter.intensity = arc4random()%100/100.0;
-        }
             break;
             
     }
@@ -207,9 +230,25 @@
         case DouYinEffectType_GLImageSoulOutFilter:
         {
             self.outPutFilter = self.soulOutFilter;
-            [self startDisplayLinkFrameInterval:30];
         }
             break;
+        case DouYinEffectType_GLImageZoomFilter:
+        {
+            self.outPutFilter = self.zoomFilter;
+        }
+            break;
+        case DouYinEffectType_GLImageWaterReflectionFilter:
+        {
+            self.outPutFilter = self.waterReflectionFilter;
+        }
+            break;
+        case DouYinEffectType_GLImageBlurSnapViewFilterGroup:
+        {
+            
+            self.outPutFilter = self.blurSnapViewFilter;
+        }
+            break;
+
             
         default:
             break;

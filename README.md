@@ -1,6 +1,15 @@
 # GPURenderKitDemo
-基于GPUImage做效果.
-由于最近还没有时间写详细的实现的具体方案。现在只是先把效果功能先做出来。后面会把实现的方案补上。
+基于GPUImage做效果渲染学习.
+
+具体实现方案后期会补充完善。
+
+![人脸调节](https://github.com/Dongdong1991/GPURenderKitDemo/blob/master/GifResources/人脸调节.gif)
+
+![放大缩小](https://github.com/Dongdong1991/GPURenderKitDemo/blob/master/GifResources/放大缩小.gif)
+
+![放大缩小](https://github.com/Dongdong1991/GPURenderKitDemo/blob/master/GifResources/模糊分屏.gif)
+
+![灵魂出窍](https://github.com/Dongdong1991/GPURenderKitDemo/blob/master/GifResources/灵魂出窍.gif)
 
 
 ###GLDouYinEffectViewController
@@ -14,7 +23,14 @@
 
 4.格子故障。
 
-5.灵魂出窍。
+5.灵魂出窍。[实现思路](https://www.jianshu.com/p/12ec246485a1)
+
+6.放大缩小。[实现思路](https://www.jianshu.com/p/ad6375fa046b)
+
+7.水面倒影（水的波纹实现的粗糙，数学比较渣，还在想办法优化）。
+
+8.模糊分屏。[实现思路](https://www.jianshu.com/p/34c941349b99)
+
 
 ###FaceViewController
 美颜，脸部调节实现。目前已经实现
@@ -24,6 +40,10 @@
 2.大小眼调节。
 
 3.胖瘦脸调节。
+
+4.大小鼻调节。
+
+5.基于顶点坐标去实现增高瘦身功能。具体看demo。
 
 **目前里面是在FragmentShader做像素的的调整来实现功能的，后面会放出基于VertexShader做功能的实现（这里可以大家可以想想两种实现方案有什么好处~~）**
 

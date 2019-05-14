@@ -6,6 +6,13 @@
 //  Copyright © 2019 刘海东. All rights reserved.
 //
 
+
+/**
+
+ 这里面用到的算法参考文章地址 "http://www.shenyanhao.com/2015/09/眼睛放大美颜算法/"
+ 
+ */
+
 #import "GLImageFaceChangeFilter.h"
 
 #define FACE_POINTS_COUNT 106
@@ -22,6 +29,9 @@ NSString *const kGLImageFaceChangeFragmentShaderString = SHADER_STRING
  uniform float thin_face_param;
  /** 大眼调节 */
  uniform float eye_param;
+ /** 鼻子调节 */
+ uniform float nose_param;
+
  uniform vec2 resolution;
  uniform int haveFaceBool;
  
@@ -135,6 +145,38 @@ NSString *const kGLImageFaceChangeFragmentShaderString = SHADER_STRING
     return newCoord;
 }
  
+ vec2 newNarrowNose_2(vec2 coord, float eye_dist, vec2 dir_up, vec2 dir_right, float aspect_ratio, float intensity)
+{
+    vec2 positionToUse = coord;
+    float scaleFactor = eye_dist *0.28;
+    float noseMorph = intensity * scaleFactor;
+    
+    int arraySize = 2;
+    float radius = 0.16;
+    float delta = noseMorph *scaleFactor;
+    
+    vec2 left_loca = locArray[48] +dir_up*0.09;
+    vec2 right_loca = locArray[50] +dir_up*0.09;
+    
+    
+    vec2 leftContourPoints[2];
+    leftContourPoints[0] = left_loca;
+    leftContourPoints[1] = locArray[82];
+    
+    vec2 rightContourPoints[2] ;
+    rightContourPoints[0] = right_loca;
+    rightContourPoints[1] = locArray[83];
+    
+    for(int i = 0; i < arraySize; i++)
+    {
+        positionToUse = warpPositionToUse1(positionToUse, leftContourPoints[i], rightContourPoints[i], radius, delta, aspect_ratio);
+        
+        positionToUse = warpPositionToUse1(positionToUse, rightContourPoints[i], leftContourPoints[i], radius, delta, aspect_ratio);
+    }
+    
+    return positionToUse;
+}
+
  
  void main()
  {
@@ -153,10 +195,12 @@ NSString *const kGLImageFaceChangeFragmentShaderString = SHADER_STRING
      if (haveFaceBool == 1)
      {
          //瘦脸调节
-         
          newCoord = adjust_thinFace(newCoord, eye_dist, dir_up, dir_right, aspect_ratio, thin_face_param);
          //眼部调节
          newCoord = adjust_eye(newCoord, eye_dist, dir_up, dir_right, aspect_ratio, eye_param);
+         //鼻子调节
+         newCoord = newNarrowNose_2(newCoord, eye_dist, dir_up, dir_right, aspect_ratio, nose_param);
+         
      }
      
      vec3 newColor = texture2D(inputImageTexture, newCoord).rgb;
@@ -166,6 +210,8 @@ NSString *const kGLImageFaceChangeFragmentShaderString = SHADER_STRING
 
 @interface GLImageFaceChangeFilter ()
 @property (nonatomic, assign) CGSize frameBufferSize;
+/** 是否是前置摄像头 */
+@property (nonatomic, assign) BOOL isFront;
 @end
 
 
@@ -201,7 +247,16 @@ NSString *const kGLImageFaceChangeFragmentShaderString = SHADER_STRING
     [self setFloat:eyeParam forUniformName:@"eye_param"];
 }
 
+- (void)setNoseParam:(float)noseParam{
+    _noseParam = noseParam;
+    [self setFloat:noseParam forUniformName:@"nose_param"];
+}
+
 - (void)setFacePointsArray:(NSArray *)pointArrays{
+    
+    if (pointArrays.count==0) {
+        return;
+    }
     
     static GLfloat facePoints[FACE_POINTS_COUNT * 2] = {0};
     
@@ -211,8 +266,14 @@ NSString *const kGLImageFaceChangeFragmentShaderString = SHADER_STRING
     for (int index = 0; index < FACE_POINTS_COUNT; index++)
     {
         CGPoint point = [pointArrays[index] CGPointValue];
-        facePoints[2 * index + 0] = point.y / width;
-        facePoints[2 * index + 1] = point.x / height;
+        
+        if (self.isFront) {
+            facePoints[2 * index + 0] = (point.y / width);
+        }else{
+            facePoints[2 * index + 0] = 1.0 - (point.y / width);
+        }
+        
+        facePoints[2 * index + 1] = (point.x / height);
     }
     
     [self setFloatVec2Array:facePoints length:FACE_POINTS_COUNT*2 forUniform:faceArrayUniform program:filterProgram];
@@ -224,6 +285,16 @@ NSString *const kGLImageFaceChangeFragmentShaderString = SHADER_STRING
     _frameBufferSize = filterFrameSize;
     [self setSize:filterFrameSize forUniform:iResolutionUniform program:filterProgram];
 }
+
+- (void)setCaptureDevicePosition:(AVCaptureDevicePosition)captureDevicePosition{
+    
+    if (captureDevicePosition == AVCaptureDevicePositionBack) {
+        self.isFront = NO;
+    }else{
+        self.isFront = YES;
+    }
+}
+
 
 
 @end

@@ -15,12 +15,17 @@
 @property (nonatomic, strong) MGFacepp *markManager;
 @property (nonatomic, strong) GPUImageVideoCamera *videoCamera;
 @property (nonatomic, strong) GPUImageView *preview;
-@property (nonatomic, strong) GLImageFaceChangeFilter *faceChangeFilter;
 @property (nonatomic, strong) GPUImageBeautifyFilter *beautifyFilter;
+@property (nonatomic, strong) GLImageFaceChangeFilterGroup *faceChangeFilterGroup;
+@property (nonatomic, strong) UIButton *rotateBtn;
+@property (nonatomic, strong) UISwitch *switchView;
+
+@property (nonatomic, assign) AVCaptureDevicePosition devicePosition;
 
 @property (nonatomic, assign) BOOL faceServiceBool;
 @property (nonatomic, strong) FaceSliderView *thinFaceView;
 @property (nonatomic, strong) FaceSliderView *eyeFaceView;
+@property (nonatomic, strong) FaceSliderView *noseFaceView;
 @property (nonatomic, strong) FaceSliderView *beautifyView;
 
 @end
@@ -36,6 +41,12 @@
 
 - (void)viewDidLoad {
     [super viewDidLoad];
+    
+    /**
+     GLImageFaceChangeFilter是人脸微整的效果。是把识别到的106个人脸关键点传到shader里面去。然后做像素的平移变化。
+     你们可以先查看项目里面有一张图片。"人脸106个关键点.png"。结合shader里面用到的点加深理解。
+     */
+    
     
     @weakify(self);
     [self checkFaceServiceBlock:^(BOOL results) {
@@ -59,7 +70,6 @@
     /** 进行联网授权版本判断，联网授权就需要进行网络授权 */
     BOOL needLicense = [MGFaceLicenseHandle getNeedNetLicense];
     if (needLicense) {
-        
         [MGFaceLicenseHandle licenseForNetwokrFinish:^(bool License, NSDate *sdkDate) {
             if (!License) {
                 NSLog(@"联网授权失败 ！！！");
@@ -85,9 +95,10 @@
 - (void)setupFaceConfig{
     
     //添加瘦脸，大眼filter
-    self.faceChangeFilter = [[GLImageFaceChangeFilter alloc]init];
-    [self.faceChangeFilter addTarget:self.preview];
-    [self.beautifyFilter addTarget:self.faceChangeFilter];
+    self.faceChangeFilterGroup = [[GLImageFaceChangeFilterGroup alloc]init];
+    [self.faceChangeFilterGroup setCaptureDevicePosition:self.videoCamera.cameraPosition];
+    [self.faceChangeFilterGroup addTarget:self.preview];
+    [self.beautifyFilter addTarget:self.faceChangeFilterGroup];
     [self.videoCamera addTarget:self.beautifyFilter];
     CGFloat w = [UIScreen mainScreen].bounds.size.width - 40*2;
     CGFloat h = 50;
@@ -102,22 +113,34 @@
     self.thinFaceView.maximumValue = 1.0;
     self.thinFaceView.valueChangeBlock = ^(float value) {
         @strongify(self);
-        self.faceChangeFilter.thinFaceParam = value;
+        self.faceChangeFilterGroup.thinFaceParam = value;
     };
     
     //大眼控制
-    self.eyeFaceView = [[FaceSliderView alloc]initWithFrame:CGRectMake(40, kScreen_H - 100 - 70, w, h)];
+    self.eyeFaceView = [[FaceSliderView alloc]initWithFrame:CGRectMake(40, kScreen_H - 100 - 50, w, h)];
     [self.view addSubview:self.eyeFaceView];
     self.eyeFaceView.title = @"大眼or小眼";
     self.eyeFaceView.minimumValue = -1.0;
     self.eyeFaceView.maximumValue = 1.0;
     self.eyeFaceView.valueChangeBlock = ^(float value) {
         @strongify(self);
-        self.faceChangeFilter.eyeParam = value;
+        self.faceChangeFilterGroup.eyeParam = value;
+    };
+    
+    //鼻子控制
+    self.noseFaceView = [[FaceSliderView alloc]initWithFrame:CGRectMake(40, kScreen_H - 100 - 100, w, h)];
+    [self.view addSubview:self.noseFaceView];
+    self.noseFaceView.title = @"大鼻or小鼻";
+    self.noseFaceView.minimumValue = -1.0;
+    self.noseFaceView.maximumValue = 1.0;
+    self.noseFaceView.valueChangeBlock = ^(float value) {
+        @strongify(self);
+        self.faceChangeFilterGroup.noseParam = value;
     };
 
+
     //美颜
-    self.beautifyView = [[FaceSliderView alloc]initWithFrame:CGRectMake(40, kScreen_H - 100 - 140, w, h)];
+    self.beautifyView = [[FaceSliderView alloc]initWithFrame:CGRectMake(40, kScreen_H - 100 - 150, w, h)];
     [self.view addSubview:self.beautifyView];
     self.beautifyView.title = @"美颜";
     self.beautifyView.minimumValue = 0.0;
@@ -126,7 +149,9 @@
         @strongify(self);
         self.beautifyFilter.intensity = value;
     };
-
+    
+    [self rotateBtn];
+    [self switchView];
     
 }
 
@@ -152,6 +177,7 @@
         self.beautifyFilter.intensity = value;
     };
     
+    [self rotateBtn];
 }
 
 
@@ -205,16 +231,57 @@
 {
     if (!_videoCamera)
     {
-        _videoCamera = [[GPUImageVideoCamera alloc] initWithSessionPreset:AVCaptureSessionPreset1280x720 cameraPosition:AVCaptureDevicePositionFront];
+        _videoCamera = [[GPUImageVideoCamera alloc] initWithSessionPreset:AVCaptureSessionPreset1280x720 cameraPosition:AVCaptureDevicePositionBack];
         _videoCamera.runBenchmark = NO;
         _videoCamera.horizontallyMirrorFrontFacingCamera = YES;
         _videoCamera.outputImageOrientation = UIInterfaceOrientationPortrait;
         _videoCamera.delegate = self;
+        self.devicePosition = _videoCamera.cameraPosition;
         [_videoCamera startCameraCapture];
     }
     
     return _videoCamera;
 }
+
+- (UIButton *)rotateBtn{
+    if (!_rotateBtn) {
+        _rotateBtn = [UIButton buttonWithType:UIButtonTypeCustom];
+        [self.view addSubview:_rotateBtn];
+        UIImage *image = [UIImage imageNamed:@"rotate"];
+        _rotateBtn.frame = CGRectMake(kScreen_W - 1.5 *image.size.width, 100, image.size.width,image.size.height );
+        [_rotateBtn setImage:image forState:UIControlStateNormal];
+        [_rotateBtn addTarget:self action:@selector(rotateBtnAction) forControlEvents:UIControlEventTouchUpInside];
+    }
+    return _rotateBtn;
+}
+
+- (UISwitch *)switchView{
+    if (!_switchView) {
+        
+        _switchView = [[UISwitch alloc] initWithFrame:CGRectMake(20, CGRectGetMinY(self.rotateBtn.frame), 51, 31)];
+        _switchView.on = YES;
+        [_switchView addTarget:self action:@selector(switchViewvalueChanged:) forControlEvents:(UIControlEventValueChanged)];
+        [self.view addSubview:_switchView];
+    }
+    return _switchView;
+}
+
+- (void)rotateBtnAction{
+    [_videoCamera rotateCamera];
+    self.devicePosition = _videoCamera.cameraPosition;
+    
+    if (self.faceServiceBool) {
+        [self.faceChangeFilterGroup setCaptureDevicePosition:self.videoCamera.cameraPosition];
+    }
+    
+}
+
+/** 是否显示人脸检测关键点 */
+- (void)switchViewvalueChanged:(UISwitch *)switchView{
+    
+    self.faceChangeFilterGroup.isShowFaceDetectPointBool = switchView.isOn;
+}
+
 
 #pragma mark ------------------------------------------------------ GPUImageVideoCameraDelegate ------------------------------------------------------
 - (void)willOutputSampleBuffer:(CMSampleBufferRef)sampleBuffer{
@@ -236,15 +303,16 @@
     NSArray *tempArray = [self.markManager detectWithImageData:imageData];
     NSUInteger faceCount = tempArray.count;
     if (faceCount == 0) {
-        self.faceChangeFilter.isHaveFace = NO;
+        self.faceChangeFilterGroup.isHaveFace = NO;
+        [self.faceChangeFilterGroup setFacePointsArray:@[]];
     }else{
-        self.faceChangeFilter.isHaveFace = YES;
+        self.faceChangeFilterGroup.isHaveFace = YES;
     }
     NSLog(@"face Count : %zd",faceCount);
     for (MGFaceInfo *faceInfo in tempArray) {
         [self.markManager GetGetLandmark:faceInfo isSmooth:YES pointsNumber:106];
-        NSLog(@"landmark - %@",faceInfo.points);
-        [self.faceChangeFilter setFacePointsArray:faceInfo.points];
+//        NSLog(@"%@",faceInfo.points);
+        [self.faceChangeFilterGroup setFacePointsArray:faceInfo.points];
     }
     [self.markManager endDetectionFrame];
 }
@@ -253,9 +321,9 @@
 #pragma mark ------------------------------------------------------ 清空所有数据 ------------------------------------------------------
 - (void)removeAllObject{
     [_videoCamera stopCameraCapture];
-    if (_faceChangeFilter) {
-        [_faceChangeFilter removeAllTargets];
-        _faceChangeFilter = nil;
+    if (_faceChangeFilterGroup) {
+        [_faceChangeFilterGroup removeAllTargets];
+        _faceChangeFilterGroup = nil;
     }
     
     if (_beautifyFilter) {
